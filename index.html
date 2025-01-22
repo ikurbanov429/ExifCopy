@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ExifCopy</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
+            color: white;
+            margin: 0;
+            padding: 0;
+        }
+        .header {
+            text-align: right;
+            padding: 10px 20px;
+            background: #1c2b36;
+            font-size: 16px;
+        }
+        .header a {
+            text-decoration: none;
+            color: #ffdd57;
+            font-weight: bold;
+            border-bottom: 1px dashed #ffdd57;
+        }
+        .header a:hover {
+            color: #ffc107;
+            border-bottom: 1px solid #ffc107;
+        }
+        .container {
+            max-width: 800px;
+            margin: 50px auto;
+            background: #1c2b36;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
+        }
+        h1 {
+            text-align: center;
+            color: #ffdd57;
+        }
+        label {
+            font-weight: bold;
+            margin-bottom: 10px;
+            display: block;
+        }
+        input[type="file"] {
+            display: block;
+            width: 100%;
+            margin: 10px 0;
+            padding: 10px;
+            background: #1e2a3b;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        input[type="file"]::file-selector-button {
+            padding: 10px 20px;
+            background: #ff5c5c;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        input[type="file"]::file-selector-button:hover {
+            background: #ff2e2e;
+        }
+        button {
+            display: block;
+            width: 100%;
+            padding: 10px;
+            background: #ff5c5c;
+            border: none;
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+            border-radius: 5px;
+            margin-top: 10px;
+        }
+        button:hover {
+            background: #ff2e2e;
+        }
+        .preview-list {
+            margin-top: 10px;
+            list-style: none;
+            padding: 0;
+        }
+        .preview-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+            padding: 10px;
+            background: #2c3e50;
+            border-radius: 5px;
+            position: relative;
+        }
+        .preview-item img {
+            width: 50px;
+            height: 50px;
+            object-fit: cover;
+            border-radius: 5px;
+            margin-right: 10px;
+        }
+        .preview-item span {
+            font-size: 14px;
+            color: #ccc;
+            flex-grow: 1;
+        }
+        .preview-item .remove {
+            color: #ff5c5c;
+            font-weight: bold;
+            font-size: 20px;
+            position: absolute;
+            right: 10px;
+            cursor: pointer;
+        }
+        .preview-item .remove:hover {
+            color: #ff2e2e;
+        }
+        .progress-bar {
+            display: none;
+            width: 100%;
+            background: #333;
+            border-radius: 5px;
+            overflow: hidden;
+            margin-top: 20px;
+        }
+        .progress-bar div {
+            width: 0%;
+            height: 20px;
+            background: #ff5c5c;
+            transition: width 0.4s ease;
+        }
+        .message {
+            display: none;
+            margin-top: 20px;
+            text-align: center;
+            font-size: 18px;
+            color: #ffdd57;
+        }
+        .counter {
+            font-size: 14px;
+            color: #ccc;
+            margin-top: -10px;
+            margin-bottom: 10px;
+            text-align: right;
+        }
+    </style>
+    <script>
+        const sourceFiles = [];
+        const targetFiles = [];
+
+        function updatePreview(input, containerId, counterId, fileList) {
+            const container = document.getElementById(containerId);
+            const counter = document.getElementById(counterId);
+
+            Array.from(input.files).forEach(file => {
+                fileList.push(file);
+
+                const reader = new FileReader();
+                const listItem = document.createElement("li");
+                listItem.className = "preview-item";
+
+                reader.onload = (e) => {
+                    const img = document.createElement("img");
+                    img.src = e.target.result;
+
+                    const fileName = document.createElement("span");
+                    fileName.textContent = file.name;
+
+                    const removeIcon = document.createElement("span");
+                    removeIcon.textContent = "-";
+                    removeIcon.className = "remove";
+                    removeIcon.onclick = () => {
+                        const index = fileList.indexOf(file);
+                        if (index > -1) {
+                            fileList.splice(index, 1);
+                        }
+                        listItem.remove();
+                        counter.textContent = `${fileList.length}/10`;
+                    };
+
+                    listItem.appendChild(img);
+                    listItem.appendChild(fileName);
+                    listItem.appendChild(removeIcon);
+                    container.appendChild(listItem);
+                    counter.textContent = `${fileList.length}/10`;
+                };
+
+                reader.readAsDataURL(file);
+            });
+        }
+
+        async function processFiles(event) {
+            event.preventDefault();
+
+            const formData = new FormData();
+            sourceFiles.forEach(file => formData.append("source", file));
+            targetFiles.forEach(file => formData.append("target", file));
+
+            const progressBar = document.querySelector(".progress-bar");
+            const progress = document.querySelector(".progress-bar div");
+            const message = document.querySelector(".message");
+
+            progressBar.style.display = "block";
+            progress.style.width = "0%";
+
+            const response = await fetch("/", {
+                method: "POST",
+                body: formData,
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                progress.style.width = "100%";
+
+                setTimeout(() => {
+                    progressBar.style.display = "none";
+                    message.style.display = "block";
+                    message.textContent = `${data.message}. Путь: ${data.path}`;
+                }, 500);
+            } else {
+                progress.style.width = "0%";
+                alert("Произошла ошибка при обработке файлов.");
+            }
+        }
+    </script>
+</head>
+<body>
+    <div class="header">
+        <a href="http://t.me/yandex429" target="_blank">Связаться с разработчиком</a>
+    </div>
+    <div class="container">
+        <h1>ExifCopy: Копирование EXIF и подстройка изображений</h1>
+        <form onsubmit="processFiles(event)">
+            <label>Выберите изображения:</label>
+            <input type="file" name="source" multiple onchange="updatePreview(this, 'source-preview', 'source-counter', sourceFiles)">
+            <div class="counter" id="source-counter">0/10</div>
+            <ul id="source-preview" class="preview-list"></ul>
+
+            <label>Выберите изображения:</label>
+            <input type="file" name="target" multiple onchange="updatePreview(this, 'target-preview', 'target-counter', targetFiles)">
+            <div class="counter" id="target-counter">0/10</div>
+            <ul id="target-preview" class="preview-list"></ul>
+
+            <button type="submit">Начать</button>
+        </form>
+        <div class="progress-bar">
+            <div></div>
+        </div>
+        <div class="message"></div>
+    </div>
+</body>
+</html>
